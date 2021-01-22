@@ -1,0 +1,86 @@
+version: 2.1
+
+
+orbs:
+  win: circleci/windows@2.2.0 # The Windows orb give you everything you need to start using the Windows executor.
+
+jobs:
+  build-native-mac:
+    macos:
+      xcode: 11.5.0
+    steps:
+      - checkout
+      - run:
+          command: npm config set '//registry.npmjs.org/:_authToken' "${NPM_TOKEN}"
+      - run: npm install -g @quasar/cli
+      - run: node --version
+      - run: quasar --version
+      - run: cd apps/pioneer-platform/platform && npm i
+      - run: cd apps/pioneer-platform/platform && GH_TOKEN=$GH_TOKEN npm run build-electron-publish-mac
+
+  build-native-linux:
+    macos:
+      xcode: 11.5.0
+    steps:
+      - checkout
+      - run:
+          command: npm config set '//registry.npmjs.org/:_authToken' "${NPM_TOKEN}"
+      - run: node --version
+      - run: brew update && brew upgrade
+      - run: brew install snapcraft
+      - run: npm install -g @quasar/cli
+      - run: cd apps/pioneer-platform/platform && npm i
+      - run: cd apps/pioneer-platform/platform && npm run fix
+      - run: cd apps/pioneer-platform/platform && GH_TOKEN=$GH_TOKEN npm run build-electron-publish-linux
+
+  build-native-windows:
+    executor:
+      name: win/default # executor type
+      size: "medium" # resource class, can be "medium", "large", "xlarge", "2xlarge", defaults to "medium"
+    steps:
+      - checkout
+      - run:
+          command: npm config set '//registry.npmjs.org/:_authToken' "${NPM_TOKEN}"
+          shell: bash.exe
+          name: set env
+      - run:
+          command: cd apps/pioneer-platform/platform && npm i
+          shell: bash.exe
+          name: npm install
+      - run:
+          command: cd apps/pioneer-platform/platform && GH_TOKEN=$GH_TOKEN npm run build-electron-publish-windows
+          shell: bash.exe
+          name: npm install
+
+not_master: &not_master
+  filters:
+    branches:
+      ignore: master
+
+only_master: &only_master
+  filters:
+    branches:
+      only:
+        - master
+
+only_develop: &only_develop
+  filters:
+    branches:
+      only:
+        - develop
+
+# Blue* deployment
+only_release_canidate: &only_release_canidate
+  filters:
+    branches:
+      only:
+        - release-canidate
+
+
+workflows:
+  version: 2
+  pioneer-native:
+    jobs:
+      - build-native-mac
+      - build-native-windows
+      - build-native-linux
